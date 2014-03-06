@@ -80,7 +80,8 @@
           onReady: '&',
           select: '&'
         },
-        template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
+        template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>' +
+          '<select><option ng-repeat="category in chart.categories">{{category}}</option></select>',
         link: function ($scope, $elm, $attr) {
           // Watches, to refresh the chart when its data, title or dimensions change
           $scope.$watch('chart', function () {
@@ -167,13 +168,17 @@
                   applyFormat("color", google.visualization.ColorFormat, dataTable);
                 }
 
-                var dashboard = new google.visualization.Dashboard($elm[0]);
+
                 var controlArgs = {
                   controlType: $scope.chart.control.type,
                   containerId:'rangefilter_div',
                   options: $scope.chart.control.options
                 };
-                var control = new google.visualization.ControlWrapper(controlArgs);
+                if ($scope.control == null){
+                   $scope.control = new google.visualization.ControlWrapper(controlArgs);
+                }
+
+
                 var chartWrapperArgs = {
                   chartType: $scope.chart.type,
 //                                    dataTable: dataTable,
@@ -209,7 +214,30 @@
                   $scope.chartWrapper.setView($scope.chart.view);
                   $scope.chartWrapper.setOptions($scope.chart.options);
                 }
-                dashboard.bind([control], $scope.chartWrapper);
+                var dashboard = new google.visualization.Dashboard($elm[0]);
+                dashboard.bind($scope.control, $scope.chartWrapper);
+                if ($scope.category == null){
+                  $scope.category = angular.element($elm[0].children[2]);
+                  $scope.category.bind("change", function(e){
+                    var category = this;
+                    if (category.options[category.selectedIndex].value == "Month"){
+                      var getMonthYear = function(someDate){
+                        var n = new Date(someDate.getFullYear(), someDate.getMonth(), 1);
+                        return n;
+                      }
+                      var result = google.visualization.data.group(
+                        dataTable,
+                        [{column: 0, modifier: getMonthYear, type: 'date'}],
+                        [{'column': 1, 'aggregation': google.visualization.data.sum, 'type': 'number'},
+                          {'column': 2, 'aggregation': google.visualization.data.sum, 'type': 'number'}]
+                      );
+                      dashboard.draw(result);
+                    }
+                    else if (category.options[category.selectedIndex].value == "Week"){
+                      dashboard.draw(dataTable);
+                    }
+                  });
+                }
 
                 $timeout(function () {
                   dashboard.draw(dataTable);
