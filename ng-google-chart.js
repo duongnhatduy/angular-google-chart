@@ -178,7 +178,6 @@
                    $scope.control = new google.visualization.ControlWrapper(controlArgs);
                 }
 
-
                 var chartWrapperArgs = {
                   chartType: $scope.chart.type,
 //                                    dataTable: dataTable,
@@ -231,6 +230,8 @@
                         [{'column': 1, 'aggregation': google.visualization.data.sum, 'type': 'number'},
                           {'column': 2, 'aggregation': google.visualization.data.sum, 'type': 'number'}]
                       );
+                      var formatter_month = new google.visualization.DateFormat({pattern: 'MMM yyyy'});
+                      formatter_month.format(result, 0);
                       dashboard.draw(result);
                     }
                     else if (category.options[category.selectedIndex].value == "Week"){
