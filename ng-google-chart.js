@@ -52,7 +52,7 @@
           onReady: '&',
           select: '&'
         },
-        template: '<select><option ng-repeat="category in chart.categories">{{category}}</option></select>' +
+        template: '<select><option ng-repeat="category in chart.categories" ng-selected="{{category.selected}}">{{category.text}}</option></select>' +
           '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
         link: function ($scope, $elm, $attr) {
           // Watches, to refresh the chart when its data, title or dimensions change
