@@ -48,7 +48,7 @@
         restrict: 'A',
         scope: {
           chart: '=',
-          range: '&range',
+          onRangeUpdate: '=',
           onReady: '&',
           select: '&'
         },
@@ -190,7 +190,7 @@
                   $scope.control = new google.visualization.ControlWrapper(controlArgs);
                   google.visualization.events.addListener($scope.control, 'statechange', function(state){
                     if (state.inProgress === false){
-                      $scope.range({range: $scope.control.getState()});
+                      $scope.onRangeUpdate($scope.control.getState().range);
                     }
                   });
                 }
