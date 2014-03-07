@@ -241,9 +241,10 @@
                     var result = getCategoryTable($scope.category, dataTable);
                     $scope.dashboard.draw(result);
                   });
-                  // no category selected, draw default table
                   $timeout(function () {
-                    $scope.dashboard.draw(dataTable);
+                    $scope.category = $scope.categoryWrapper[0].options[$scope.categoryWrapper[0].selectedIndex].value;
+                    var result = getCategoryTable($scope.category, dataTable);
+                    $scope.dashboard.draw(result);
                   });
                 }
                 //if there is category selected, draw with that
