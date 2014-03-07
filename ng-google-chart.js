@@ -18,25 +18,10 @@
       }
     })
 
-    .provider('googleJsapiUrl', function () {
-      var protocol = 'https:';
-      var url = '//www.google.com/jsapi';
 
-      this.setProtocol = function(newProtocol) {
-        protocol = newProtocol;
-      };
-
-      this.setUrl = function(newUrl) {
-        url = newUrl;
-      };
-
-      this.$get = function() {
-        return (protocol ? protocol : '') + url;
-      };
-    })
-    .factory('googleChartApiPromise', ['$rootScope', '$q', 'googleChartApiConfig', 'googleJsapiUrl', function ($rootScope, $q, apiConfig, googleJsapiUrl) {
+    .factory('googleChartApiPromise', ['$rootScope', '$q', 'googleChartApiConfig', function ($rootScope, $q, apiConfig) {
       var apiReady = $q.defer();
-      var onLoad = function () {
+      (function () {
         // override callback function
         var settings = {
           callback: function () {
@@ -54,21 +39,7 @@
         settings = angular.extend({}, apiConfig.optionalSettings, settings);
 
         window.google.load('visualization', apiConfig.version, settings);
-      };
-      var head = document.getElementsByTagName('head')[0];
-      var script = document.createElement('script');
-
-      script.setAttribute('type', 'text/javascript');
-      script.src = googleJsapiUrl;
-      head.appendChild(script);
-
-      script.onreadystatechange = function () {
-        if (this.readyState == 'complete') {
-          onLoad();
-        }
-      };
-
-      script.onload = onLoad;
+      })();
 
       return apiReady.promise;
     }])
@@ -76,17 +47,20 @@
       return {
         restrict: 'A',
         scope: {
-          chart: '=chart',
+          chart: '=',
+          range: '&range',
           onReady: '&',
           select: '&'
         },
-        template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>' +
-          '<select><option ng-repeat="category in chart.categories">{{category}}</option></select>',
+        template: '<select><option ng-repeat="category in chart.categories">{{category}}</option></select>' +
+          '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
         link: function ($scope, $elm, $attr) {
           // Watches, to refresh the chart when its data, title or dimensions change
           $scope.$watch('chart', function () {
             drawAsync();
           }, true); // true is for deep object equality checking
+
+
 
           // Redraw the chart if the window is resized
           $rootScope.$on('resizeMsg', function (e) {
@@ -143,6 +117,43 @@
             }
           }
 
+          function getCategoryTable(category, dataTable){
+            if (category === 'Month'){
+              var getMonthYear = function getMonthYear(someDate){
+                var n = new Date(someDate.getFullYear(), someDate.getMonth(), 1);
+                return n;
+              };
+              var result = google.visualization.data.group(
+                dataTable,
+                [{column: 0, modifier: getMonthYear, type: 'date'}],
+                [{'column': 1, 'aggregation': google.visualization.data.sum, 'type': 'number'},
+                  {'column': 2, 'aggregation': google.visualization.data.sum, 'type': 'number'}]
+              );
+              var formatter_month = new google.visualization.DateFormat({pattern: 'MMM yyyy'});
+              formatter_month.format(result, 0);
+              return result;
+            }
+            else if (category === 'Week'){
+              var getFirstDateOfWeek = function getFirstDateOfWeek(d){
+                var n = new Date(d.getTime());
+                n.setUTCHours(0,0,0,0);
+                // Set to Monday
+                n.setUTCDate(n.getUTCDate() - n.getUTCDay() + 1);
+                return n;
+              };
+              var weekResult = google.visualization.data.group(
+                dataTable,
+                [{column: 0, modifier: getFirstDateOfWeek, type: 'date'}],
+                [{'column': 1, 'aggregation': google.visualization.data.sum, 'type': 'number'},
+                  {'column': 2, 'aggregation': google.visualization.data.sum, 'type': 'number'}]
+              );
+              return weekResult;
+            }
+            else{
+              return dataTable;
+            }
+          }
+
           function draw() {
             if (!draw.triggered && ($scope.chart != undefined)) {
               draw.triggered = true;
@@ -175,12 +186,17 @@
                   options: $scope.chart.control.options
                 };
                 if ($scope.control == null){
-                   $scope.control = new google.visualization.ControlWrapper(controlArgs);
+                  $scope.control = new google.visualization.ControlWrapper(controlArgs);
+                  $scope.control = new google.visualization.ControlWrapper(controlArgs);
+                  google.visualization.events.addListener($scope.control, 'statechange', function(state){
+                    if (state.inProgress === false){
+                      $scope.range({range: $scope.control.getState()});
+                    }
+                  });
                 }
 
                 var chartWrapperArgs = {
                   chartType: $scope.chart.type,
-//                                    dataTable: dataTable,
                   view: $scope.chart.view,
                   options: $scope.chart.options,
                   containerId: 'chart_div'
@@ -209,40 +225,36 @@
                 }
                 else {
                   $scope.chartWrapper.setChartType($scope.chart.type);
-//                                    $scope.chartWrapper.setDataTable(dataTable);
                   $scope.chartWrapper.setView($scope.chart.view);
                   $scope.chartWrapper.setOptions($scope.chart.options);
                 }
-                var dashboard = new google.visualization.Dashboard($elm[0]);
-                dashboard.bind($scope.control, $scope.chartWrapper);
-                if ($scope.category == null){
-                  $scope.category = angular.element($elm[0].children[2]);
-                  $scope.category.bind("change", function(e){
-                    var category = this;
-                    if (category.options[category.selectedIndex].value == "Month"){
-                      var getMonthYear = function(someDate){
-                        var n = new Date(someDate.getFullYear(), someDate.getMonth(), 1);
-                        return n;
-                      }
-                      var result = google.visualization.data.group(
-                        dataTable,
-                        [{column: 0, modifier: getMonthYear, type: 'date'}],
-                        [{'column': 1, 'aggregation': google.visualization.data.sum, 'type': 'number'},
-                          {'column': 2, 'aggregation': google.visualization.data.sum, 'type': 'number'}]
-                      );
-                      var formatter_month = new google.visualization.DateFormat({pattern: 'MMM yyyy'});
-                      formatter_month.format(result, 0);
-                      dashboard.draw(result);
-                    }
-                    else if (category.options[category.selectedIndex].value == "Week"){
-                      dashboard.draw(dataTable);
-                    }
+
+                if($scope.dashboard == null){
+                  $scope.dashboard = new google.visualization.Dashboard($elm[0]);
+                  $scope.dashboard.bind($scope.control, $scope.chartWrapper);
+                }
+                //category group with select
+                if ($scope.categoryWrapper == null){
+                  $scope.categoryWrapper = angular.element($elm[0].children[0]);
+                  $scope.categoryWrapper.bind('change', function(){
+                    $scope.category = this.options[this.selectedIndex].value;
+                    var result = getCategoryTable($scope.category, dataTable);
+                    $scope.dashboard.draw(result);
+                  });
+                  // no category selected, draw default table
+                  $timeout(function () {
+                    $scope.dashboard.draw(dataTable);
                   });
                 }
+                //if there is category selected, draw with that
+                else{
+                  $timeout(function () {
+                    var result = getCategoryTable($scope.category, dataTable);
+                    $scope.dashboard.draw(result);
+                  });
+                }
+//@@TODO change select to build-in google chart function
 
-                $timeout(function () {
-                  dashboard.draw(dataTable);
-                });
               }, 0, true);
             }
           }
@@ -250,7 +262,7 @@
           function drawAsync() {
             googleChartApiPromise.then(function () {
               draw();
-            })
+            });
           }
         }
       };
