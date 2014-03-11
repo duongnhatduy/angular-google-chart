@@ -175,10 +175,12 @@
                 if(zoomerState === originalZoomControlState){
                   //set end range to second last unit
                   var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
+                  var startUnit = result.getValue(0, 0);
                   var secondLastUnit = result.getValue(result.getNumberOfRows() - 2, 0);
                   var currentTimeUnit = $scope.modifier(new Date());
                   if (currentTimeUnit.getTime() === lastUnit.getTime()){
                     zoomerState.range.end = secondLastUnit;
+                    zoomerState.range.start = startUnit;
                   }
                 }
               }
