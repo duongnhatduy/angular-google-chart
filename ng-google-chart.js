@@ -1,10 +1,10 @@
 /**
  * @description Google Chart Api Directive Module for AngularJS
  * @version 0.0.8
- * @author Duy Duong
+ * @author Nicolas Bouillon <nicolas@bouil.org>
  * @author GitHub contributors
  * @license MIT
- * @year 2014
+ * @year 2013
  */
 (function (document, window) {
   'use strict';
@@ -49,7 +49,7 @@
         scope: {
           //chart data object, type, options, formatter
           chart: '=',
-          control: '=chartControl',
+          chartControl: '=chartControl',
           onRangeUpdate: '=',
           modifier: '=',
           aggregator: '@',
@@ -58,7 +58,6 @@
         },
         template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
         link: function ($scope, $elm, $attr) {
-
           googleChartApiPromise.then(function () {
             var zoomerState, controlWrapper, dashboard, chartWrapper, formatters, dataTable;
             var originalZoomControlState;
@@ -89,13 +88,18 @@
               draw();
             }, true);
             $scope.$watch('modifier', function () {
-              draw();
+              try{
+                draw();
+              }
+              catch(e){
+                //error if chart is undefined
+              }
             });
             formatters = {};
             var controlArgs = {
-              controlType: $scope.control.type,
+              controlType: $scope.chartControl.type,
               containerId: 'rangefilter_div',
-              options: $scope.control.options
+              options: $scope.chartControl.options
             };
             controlWrapper = new google.visualization.ControlWrapper(controlArgs);
             controlWrapper.setState(controlArgs.options.state);
