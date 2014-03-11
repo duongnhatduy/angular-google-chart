@@ -59,34 +59,27 @@
         template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
         link: function ($scope, $elm, $attr) {
           googleChartApiPromise.then(function () {
-            var zoomerState, controlWrapper, dashboard, chartWrapper, formatters, dataTable;
+            var zoomerState, controlWrapper, dashboard, chartWrapper, dataTable;
             var originalZoomControlState;
             originalZoomControlState = zoomerState = {range: {}};
             // Watches, to refresh the chart when its data, title or dimensions change
             // Watch for chart data from undefined to array
-            $scope.$watch('chart', function (chart) {
-              if(!chart){
+            $scope.$watch('chart.data', function (data) {
+              if(!data){
                 return;
               }
-              if (chart.data instanceof google.visualization.DataTable){
-                dataTable = chart.data;
+              if (data instanceof google.visualization.DataTable){
+                dataTable = data;
               }
-              else if (Array.isArray($scope.chart.data)){
-                dataTable = google.visualization.arrayToDataTable(chart.data);
+              else if (Array.isArray(data)){
+                dataTable = google.visualization.arrayToDataTable(data);
               }
               else{
-                dataTable = new google.visualization.DataTable(chart.data, 0.5);
-              }
-              if (typeof(chart.formatters) != 'undefined') {
-                //@@TODO: refactor applyFormat
-                applyFormat("number", google.visualization.NumberFormat, dataTable);
-                applyFormat("arrow", google.visualization.ArrowFormat, dataTable);
-                applyFormat("date", google.visualization.DateFormat, dataTable);
-                applyFormat("bar", google.visualization.BarFormat, dataTable);
-                applyFormat("color", google.visualization.ColorFormat, dataTable);
+                dataTable = new google.visualization.DataTable(data, 0.5);
               }
               draw();
             }, true);
+
             $scope.$watch('modifier', function () {
               try{
                 draw();
@@ -95,7 +88,15 @@
                 //error if chart is undefined
               }
             });
-            formatters = {};
+
+            // Redraw the chart if the window is resized
+            $rootScope.$on('resizeMsg', function (e) {
+              // Not always defined yet in IE so check
+              if (chartWrapper) {
+                draw();
+              }
+            });
+
             var controlArgs = {
               controlType: $scope.chartControl.type,
               containerId: 'rangefilter_div',
@@ -108,7 +109,6 @@
               if (state.inProgress === false) {
                 zoomerState = controlWrapper.getState();
                 $scope.onRangeUpdate(zoomerState.range);
-                //                      $scope.stateChanged = true;
               }
             });
             var chartWrapperArgs = {
@@ -147,60 +147,6 @@
             dashboard = new google.visualization.Dashboard($elm[0]);
             dashboard.bind(controlWrapper, chartWrapper);
 
-
-            // Redraw the chart if the window is resized
-            $rootScope.$on('resizeMsg', function (e) {
-              // Not always defined yet in IE so check
-              if (chartWrapper) {
-                draw();
-              }
-            });
-
-            function applyFormat(formatType, formatClass, dataTable) {
-
-              if (typeof($scope.chart.formatters[formatType]) != 'undefined') {
-                if (formatters[formatType] == null) {
-                  formatters[formatType] = new Array();
-
-                  if (formatType === 'color') {
-                    for (var cIdx = 0; cIdx < $scope.chart.formatters[formatType].length; cIdx++) {
-                      var colorFormat = new formatClass();
-
-                      for (var i = 0; i < $scope.chart.formatters[formatType][cIdx].formats.length; i++) {
-                        var data = $scope.chart.formatters[formatType][cIdx].formats[i];
-
-                        if (typeof(data.fromBgColor) != 'undefined' && typeof(data.toBgColor) != 'undefined')
-                          colorFormat.addGradientRange(data.from, data.to, data.color, data.fromBgColor, data.toBgColor);
-                        else
-                          colorFormat.addRange(data.from, data.to, data.color, data.bgcolor);
-                      }
-
-                      formatters[formatType].push(colorFormat)
-                    }
-                  } else {
-
-                    for (var i = 0; i < $scope.chart.formatters[formatType].length; i++) {
-                      formatters[formatType].push(new formatClass(
-                        $scope.chart.formatters[formatType][i])
-                      );
-                    }
-                  }
-                }
-
-
-                //apply formats to dataTable
-                for (var i = 0; i < formatters[formatType].length; i++) {
-                  if ($scope.chart.formatters[formatType][i].columnNum < dataTable.getNumberOfColumns())
-                    formatters[formatType][i].format(dataTable, $scope.chart.formatters[formatType][i].columnNum);
-                }
-
-
-                //Many formatters require HTML tags to display special formatting
-                if (formatType === 'arrow' || formatType === 'bar' || formatType === 'color')
-                  $scope.chart.options.allowHtml = true;
-              }
-            }
-
             var getCategoryTable = function getCategoryTable(dataTable) {
               if ($scope.modifier) {
                 var result = google.visualization.data.group(
@@ -213,8 +159,8 @@
                     {'column': 2, 'aggregation': google.visualization.data[$scope.aggregator], 'type': 'number'}
                   ]
                 );
-                var formatter_month = new google.visualization.DateFormat({pattern: $scope.modifier.format});
-                formatter_month.format(result, 0);
+                var formatter = new google.visualization.DateFormat({pattern: $scope.modifier.format});
+                formatter.format(result, 0);
                 return result;
               }
               else {
@@ -225,20 +171,23 @@
             function draw() {
               var result = getCategoryTable(dataTable);
               try{
-                var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
-                var secondLastUnit = result.getValue(result.getNumberOfRows() - 2, 0);
-                var currentTimeUnit = $scope.modifier(new Date());
-                if (currentTimeUnit.getTime() === lastUnit.getTime()){
-                  zoomerState.range.end = secondLastUnit;
+
+                if(zoomerState === originalZoomControlState){
+                  //set end range to second last unit
+                  var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
+                  var secondLastUnit = result.getValue(result.getNumberOfRows() - 2, 0);
+                  var currentTimeUnit = $scope.modifier(new Date());
+                  if (currentTimeUnit.getTime() === lastUnit.getTime()){
+                    zoomerState.range.end = secondLastUnit;
+                  }
                 }
               }
               catch(e){
                 console.log(e, 'e');
               }
               dashboard.draw(result);
-              if(zoomerState === originalZoomControlState){
-                controlWrapper.setState(zoomerState);
-              }
+              controlWrapper.setState(zoomerState);
+
 
 //@@TODO change select to build-in google chart function
               //@@TODO date range being exclusive
