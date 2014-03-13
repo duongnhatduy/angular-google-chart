@@ -54,7 +54,9 @@
           modifier: '=',
           aggregator: '@',
           onReady: '&',
-          select: '&'
+          select: '&',
+          rangeTo: '=',
+          rangeFrom: '='
         },
         template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
         link: function ($scope, $elm, $attr) {
@@ -105,7 +107,18 @@
               // draw only when chartData is available;
               chartDataDefer.promise.then(draw);
             });
-
+            $scope.$watchCollection('[rangeFrom, rangeTo]', function(newRange){
+              if(newRange[0] && newRange[1]){
+                zoomerState.range.start = new Date(newRange[0].setHours(0, 0, 0, 0));
+                zoomerState.range.end = new Date(newRange[1].setHours(23, 59, 59, 0));
+                //circular to draw() function because draw call rangeUpdate and change range
+                if(zoomerState === originalZoomControlState){
+                  originalZoomControlState = {};
+                  return;
+                }
+                draw();
+              }
+            });
             // Redraw the chart if the window is resized
             $rootScope.$on('resizeMsg', function (e) {
               // Not always defined yet in IE so check
@@ -203,11 +216,10 @@
                 }
               }
               catch(e){
-                console.log(e, 'e');
+                console.log(e);
               }
               dashboard.draw(result);
               controlWrapper.setState(zoomerState);
-
 
 //@@TODO change select to build-in google chart function
               //@@TODO date range being exclusive
