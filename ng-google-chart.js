@@ -68,7 +68,7 @@
             originalZoomControlState = zoomerState = {range: {}};
             // Watches, to refresh the chart when its data, title or dimensions change
             // Watch for chart data from undefined to array
-            $scope.$watch('chart.data', function (data, oldData) {
+            $scope.$watch('chart.data', function (data) {
               if(!data){
                 return;
               }
@@ -93,15 +93,14 @@
               }
             }, true);
 
-            $scope.$watch('modifier', function (m, oldM) {
+            $scope.$watch('modifier', function (m) {
               if(!m){
                 return;
               }
               if(!modifierDefer.isResolved){
-                console.log('abcccss')
                 // mark modifier as available;
                 modifierDefer.isResolved = true;
-                modifierDefer.resolve(m);
+                modifierDefer.resolve();
               }
               // draw only when chartData is available;
               chartDataDefer.promise.then(draw);
