@@ -43,7 +43,7 @@
 
       return apiReady.promise;
     }])
-    .directive('googleChart', ['$timeout', '$window', '$rootScope', 'googleChartApiPromise', function ($timeout, $window, $rootScope, googleChartApiPromise) {
+    .directive('googleChart', ['$timeout', '$window', '$rootScope', 'googleChartApiPromise', '$q', function ($timeout, $window, $rootScope, googleChartApiPromise, $q) {
       return {
         restrict: 'A',
         scope: {
@@ -61,12 +61,26 @@
           googleChartApiPromise.then(function () {
             var zoomerState, controlWrapper, dashboard, chartWrapper, dataTable;
             var originalZoomControlState;
+            var chartDataDefer = $q.defer();
+            chartDataDefer.isResolved = false;
+            var modifierDefer = $q.defer();
+            modifierDefer.isResolved = false;
             originalZoomControlState = zoomerState = {range: {}};
             // Watches, to refresh the chart when its data, title or dimensions change
             // Watch for chart data from undefined to array
-            $scope.$watch('chart.data', function (data) {
+            $scope.$watch('chart.data', function (data, oldData) {
               if(!data){
                 return;
+              }
+              if(!chartDataDefer.isResolved){
+                // mark chartData as available;
+                chartDataDefer.isResolved = true;
+                chartDataDefer.resolve();
+              }
+              else {
+                // only draw otherwise to
+                // avoid double draw on init (caused by watching modifier)
+                modifierDefer.promise.then(draw);
               }
               if (data instanceof google.visualization.DataTable){
                 dataTable = data;
@@ -77,16 +91,20 @@
               else{
                 dataTable = new google.visualization.DataTable(data, 0.5);
               }
-              draw();
             }, true);
 
-            $scope.$watch('modifier', function () {
-              try{
-                draw();
+            $scope.$watch('modifier', function (m, oldM) {
+              if(!m){
+                return;
               }
-              catch(e){
-                //error if chart is undefined
+              if(!modifierDefer.isResolved){
+                console.log('abcccss')
+                // mark modifier as available;
+                modifierDefer.isResolved = true;
+                modifierDefer.resolve(m);
               }
+              // draw only when chartData is available;
+              chartDataDefer.promise.then(draw);
             });
 
             // Redraw the chart if the window is resized
@@ -182,6 +200,7 @@
                     zoomerState.range.end = secondLastUnit;
                     zoomerState.range.start = startUnit;
                   }
+                  $scope.onRangeUpdate(zoomerState.range);
                 }
               }
               catch(e){
