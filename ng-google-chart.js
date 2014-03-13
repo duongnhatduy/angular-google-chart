@@ -104,13 +104,27 @@
                 modifierDefer.isResolved = true;
                 modifierDefer.resolve();
               }
+              if(zoomerState.range.start){
+                $scope.rangeFrom = zoomerState.range.start = $scope.modifier(zoomerState.range.start);
+              }
+              if(zoomerState.range.end){
+                $scope.rangeTo = zoomerState.range.end = $scope.modifier(zoomerState.range.end, true);
+              }
               // draw only when chartData is available;
               chartDataDefer.promise.then(draw);
             });
             $scope.$watchCollection('[rangeFrom, rangeTo]', function(newRange){
               if(newRange[0] && newRange[1]){
-                zoomerState.range.start = new Date(newRange[0].setHours(0, 0, 0, 0));
-                zoomerState.range.end = new Date(newRange[1].setHours(23, 59, 59, 0));
+                var from = $scope.modifier(newRange[0]);
+                if($scope.rangeFrom.getTime() !== from.getTime()){
+                  $scope.rangeFrom = zoomerState.range.start = from;
+                  return;
+                }
+                var to = $scope.modifier(new Date(newRange[1]), true);
+                if($scope.rangeTo.getTime() !== to.getTime()){
+                  zoomerState.range.end = $scope.rangeTo = to;
+                  return;
+                }
                 //circular to draw() function because draw call rangeUpdate and change range
                 if(zoomerState === originalZoomControlState){
                   originalZoomControlState = {};
@@ -139,7 +153,8 @@
             google.visualization.events.addListener(controlWrapper, 'statechange', function (state) {
               if (state.inProgress === false) {
                 zoomerState = controlWrapper.getState();
-                $scope.onRangeUpdate(zoomerState.range);
+                $scope.rangeFrom = zoomerState.range.start;// = $scope.modifier(zoomerState.range.start);
+                $scope.rangeTo = zoomerState.range.end;// = $scope.modifier(zoomerState.range.end, true);
               }
             });
             var chartWrapperArgs = {
