@@ -116,6 +116,7 @@
                   originalZoomControlState = {};
                   return;
                 }
+                $scope.onRangeUpdate();
                 draw();
               }
             });
