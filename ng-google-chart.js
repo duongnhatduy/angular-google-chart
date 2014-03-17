@@ -205,6 +205,7 @@
 
                 if(zoomerState === originalZoomControlState){
                   //set end range to second last unit
+                  //check if enough data to remove current month/week
                   if(result.getNumberOfRows() > 1){
                     var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
                     var startUnit = result.getValue(0, 0);
