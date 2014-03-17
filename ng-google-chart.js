@@ -104,27 +104,13 @@
                 modifierDefer.isResolved = true;
                 modifierDefer.resolve();
               }
-              if(zoomerState.range.start){
-                $scope.rangeFrom = zoomerState.range.start = $scope.modifier(zoomerState.range.start);
-              }
-              if(zoomerState.range.end){
-                $scope.rangeTo = zoomerState.range.end = $scope.modifier(zoomerState.range.end, true);
-              }
               // draw only when chartData is available;
               chartDataDefer.promise.then(draw);
             });
             $scope.$watchCollection('[rangeFrom, rangeTo]', function(newRange){
               if(newRange[0] && newRange[1]){
-                var from = $scope.modifier(newRange[0]);
-                if($scope.rangeFrom.getTime() !== from.getTime()){
-                  $scope.rangeFrom = zoomerState.range.start = from;
-                  return;
-                }
-                var to = $scope.modifier(new Date(newRange[1]), true);
-                if($scope.rangeTo.getTime() !== to.getTime()){
-                  zoomerState.range.end = $scope.rangeTo = to;
-                  return;
-                }
+                zoomerState.range.start = new Date(newRange[0].setHours(0, 0, 0, 0));
+                zoomerState.range.end = new Date(newRange[1].setHours(23, 59, 59, 0));
                 //circular to draw() function because draw call rangeUpdate and change range
                 if(zoomerState === originalZoomControlState){
                   originalZoomControlState = {};
@@ -153,8 +139,7 @@
             google.visualization.events.addListener(controlWrapper, 'statechange', function (state) {
               if (state.inProgress === false) {
                 zoomerState = controlWrapper.getState();
-                $scope.rangeFrom = zoomerState.range.start;// = $scope.modifier(zoomerState.range.start);
-                $scope.rangeTo = zoomerState.range.end;// = $scope.modifier(zoomerState.range.end, true);
+                $scope.onRangeUpdate(zoomerState.range);
               }
             });
             var chartWrapperArgs = {
@@ -220,13 +205,15 @@
 
                 if(zoomerState === originalZoomControlState){
                   //set end range to second last unit
-                  var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
-                  var startUnit = result.getValue(0, 0);
-                  var secondLastUnit = result.getValue(result.getNumberOfRows() - 2, 0);
-                  var currentTimeUnit = $scope.modifier(new Date());
-                  if (currentTimeUnit.getTime() === lastUnit.getTime()){
-                    zoomerState.range.end = secondLastUnit;
-                    zoomerState.range.start = startUnit;
+                  if(result.getNumberOfRows() >= 1){
+                    var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
+                    var startUnit = result.getValue(0, 0);
+                    var secondLastUnit = result.getValue(result.getNumberOfRows() - 2, 0);
+                    var currentTimeUnit = $scope.modifier(new Date());
+                    if (currentTimeUnit.getTime() === lastUnit.getTime()){
+                      zoomerState.range.end = secondLastUnit;
+                      zoomerState.range.start = startUnit;
+                    }
                   }
                   $scope.onRangeUpdate(zoomerState.range);
                 }
