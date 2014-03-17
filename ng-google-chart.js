@@ -58,7 +58,7 @@
           rangeTo: '=',
           rangeFrom: '='
         },
-        template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div"></div>',
+        template: '<div id="chart_div"></div><div style="height:50px" id="rangefilter_div" ng-show="hasMultipleColumns"></div>',
         link: function ($scope, $elm, $attr) {
           googleChartApiPromise.then(function () {
             var zoomerState, controlWrapper, dashboard, chartWrapper, dataTable;
@@ -71,10 +71,10 @@
             // Watches, to refresh the chart when its data, title or dimensions change
             // Watch for chart data from undefined to array
             $scope.$watch('chart.data', function (data) {
-              if(!data){
+              if (!data) {
                 return;
               }
-              if(!chartDataDefer.isResolved){
+              if (!chartDataDefer.isResolved) {
                 // mark chartData as available;
                 chartDataDefer.isResolved = true;
                 chartDataDefer.resolve();
@@ -84,35 +84,49 @@
                 // avoid double draw on init (caused by watching modifier)
                 modifierDefer.promise.then(draw);
               }
-              if (data instanceof google.visualization.DataTable){
+              if (data instanceof google.visualization.DataTable) {
                 dataTable = data;
               }
-              else if (Array.isArray(data)){
+              else if (Array.isArray(data)) {
                 dataTable = google.visualization.arrayToDataTable(data);
               }
-              else{
+              else {
                 dataTable = new google.visualization.DataTable(data, 0.5);
               }
             }, true);
 
             $scope.$watch('modifier', function (m) {
-              if(!m){
+              if (!m) {
                 return;
               }
-              if(!modifierDefer.isResolved){
+              if (!modifierDefer.isResolved) {
                 // mark modifier as available;
                 modifierDefer.isResolved = true;
                 modifierDefer.resolve();
               }
+              if (zoomerState.range.start) {
+                $scope.rangeFrom = zoomerState.range.start = $scope.modifier(zoomerState.range.start);
+              }
+              if (zoomerState.range.end) {
+                $scope.rangeTo = zoomerState.range.end = $scope.modifier(zoomerState.range.end, true);
+              }
               // draw only when chartData is available;
               chartDataDefer.promise.then(draw);
             });
-            $scope.$watchCollection('[rangeFrom, rangeTo]', function(newRange){
-              if(newRange[0] && newRange[1]){
-                zoomerState.range.start = new Date(newRange[0].setHours(0, 0, 0, 0));
-                zoomerState.range.end = new Date(newRange[1].setHours(23, 59, 59, 0));
+            $scope.$watchCollection('[rangeFrom, rangeTo]', function (newRange) {
+              if (newRange[0] && newRange[1]) {
+                var from = $scope.modifier(newRange[0]);
+                if ($scope.rangeFrom.getTime() !== from.getTime()) {
+                  $scope.rangeFrom = zoomerState.range.start = from;
+                  return;
+                }
+                var to = $scope.modifier(new Date(newRange[1]), true);
+                if ($scope.rangeTo.getTime() !== to.getTime()) {
+                  zoomerState.range.end = $scope.rangeTo = to;
+                  return;
+                }
                 //circular to draw() function because draw call rangeUpdate and change range
-                if(zoomerState === originalZoomControlState){
+                if (zoomerState === originalZoomControlState) {
                   originalZoomControlState = {};
                   return;
                 }
@@ -201,25 +215,39 @@
 
             function draw() {
               var result = getCategoryTable(dataTable);
-              try{
 
-                if(zoomerState === originalZoomControlState){
+              if(result.getNumberOfRows() > 1){
+                //hide the zoomer because of bug if there is only 1 column
+                $scope.hasMultipleColumns = true;
+              }
+              else{
+                $scope.hasMultipleColumns = false;
+              }
+
+              try {
+
+                if (zoomerState === originalZoomControlState) {
                   //set end range to second last unit
                   //check if enough data to remove current month/week
-                  if(result.getNumberOfRows() > 1){
+                  if (result.getNumberOfRows() > 1) {
                     var lastUnit = result.getValue(result.getNumberOfRows() - 1, 0);
                     var startUnit = result.getValue(0, 0);
                     var secondLastUnit = result.getValue(result.getNumberOfRows() - 2, 0);
                     var currentTimeUnit = $scope.modifier(new Date());
-                    if (currentTimeUnit.getTime() === lastUnit.getTime()){
+                    if (currentTimeUnit.getTime() === lastUnit.getTime()) {
                       zoomerState.range.end = secondLastUnit;
                       zoomerState.range.start = startUnit;
                     }
                   }
-                  $scope.onRangeUpdate(zoomerState.range);
+                  else{
+                    zoomerState.range.end = result.getValue(0, 0);
+                    zoomerState.range.start = result.getValue(0, 0);
+                  }
+                  $scope.rangeFrom = zoomerState.range.start;// = $scope.modifier(zoomerState.range.start);
+                  $scope.rangeTo = zoomerState.range.end;// = $scope.modifier(zoomerState.range.end, true);
                 }
               }
-              catch(e){
+              catch (e) {
                 console.log(e);
               }
               dashboard.draw(result);
