@@ -125,12 +125,12 @@
                   $scope.rangeTo = to;
                   return;
                 }
+                $scope.onRangeUpdate();
                 //circular to draw() function because draw call rangeUpdate and change range
                 if (zoomerState === originalZoomControlState) {
                   originalZoomControlState = {};
                   return;
                 }
-                $scope.onRangeUpdate();
                 draw();
               }
             });
