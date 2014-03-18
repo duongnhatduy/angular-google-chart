@@ -115,9 +115,9 @@
             });
             $scope.$watchCollection('[rangeFrom, rangeTo]', function (newRange) {
               if (newRange[0] && newRange[1]) {
-                var from = $scope.modifier(newRange[0]);
+                var from = zoomerState.range.start = $scope.modifier(newRange[0]);
                 if ($scope.rangeFrom.getTime() !== from.getTime()) {
-                  $scope.rangeFrom = zoomerState.range.start = from;
+                  $scope.rangeFrom = from;
                   return;
                 }
                 var to = $scope.modifier(new Date(newRange[1]), true);
