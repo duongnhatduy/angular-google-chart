@@ -120,9 +120,9 @@
                   $scope.rangeFrom = from;
                   return;
                 }
-                var to = $scope.modifier(new Date(newRange[1]), true);
+                var to = zoomerState.range.end = $scope.modifier(new Date(newRange[1]), true);
                 if ($scope.rangeTo.getTime() !== to.getTime()) {
-                  zoomerState.range.end = $scope.rangeTo = to;
+                  $scope.rangeTo = to;
                   return;
                 }
                 //circular to draw() function because draw call rangeUpdate and change range
